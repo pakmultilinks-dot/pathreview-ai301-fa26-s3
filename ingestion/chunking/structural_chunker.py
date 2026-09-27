@@ -84,11 +84,13 @@ class StructuralChunker(BaseChunker):
         heading_stack = []  # Stack of (level, heading_text)
         current_section_lines = []
         current_level = 0
+        seen_heading = False
 
         for line in lines:
             heading_match = re.match(r"^(#{1,6})\s+(.+)$", line)
 
             if heading_match:
+                seen_heading = True
                 # Save previous section if exists
                 if current_section_lines:
                     if heading_stack:
@@ -129,5 +131,10 @@ class StructuralChunker(BaseChunker):
                     "level": heading_stack[-1][0] if heading_stack else 0,
                 }
             )
+
+        # Fallback for documents without any headings: keep the whole
+        # document as a single section instead of dropping it silently.
+        if not sections and not seen_heading and text.strip():
+            sections.append({"content": text.strip(), "path": [], "level": 0})
 
         return sections
