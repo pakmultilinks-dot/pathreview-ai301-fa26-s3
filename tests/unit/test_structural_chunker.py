@@ -25,9 +25,6 @@ class TestStructuralChunker:
         result = chunker.chunk("   \n\n  ", {})
         assert result == []
 
-    @pytest.mark.xfail(
-        strict=True, reason="issue #56: structural chunker drops documents with no headings"
-    )
     def test_document_with_no_headings(self, chunker):
         """Test document with no headings returns single chunk."""
         text = "This is plain text without any markdown headings. " * 20
