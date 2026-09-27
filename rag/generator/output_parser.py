@@ -53,38 +53,66 @@ def parse_review_output(raw: str) -> list[FeedbackSection]:
     return _parse_plaintext_output(raw)
 
 
-def _parse_json_output(data: dict) -> list[FeedbackSection]:
+def _parse_json_output(data: dict | list) -> list[FeedbackSection]:
     """Parse structured JSON output.
 
     Args:
-        data: Parsed JSON dict
+        data: Parsed JSON dict or list
 
     Returns:
         List of FeedbackSection objects
     """
     sections = []
 
-    # Handle both single-level and nested structures
-    for key, value in data.items():
-        if isinstance(value, dict):
-            section = FeedbackSection(
-                section_name=key,
-                content=json.dumps(value),
-                confidence=0.9,
-                suggestions=(
-                    value.get("suggestions", [])
-                    if isinstance(value.get("suggestions"), list)
-                    else []
-                ),
+    if isinstance(data, list):
+        # Top-level JSON array: one section per item
+        for index, item in enumerate(data):
+            if isinstance(item, dict):
+                for key, value in item.items():
+                    sections.append(_section_from_key_value(key, value))
+            else:
+                sections.append(
+                    FeedbackSection(
+                        section_name=f"item_{index}",
+                        content=str(item),
+                        confidence=0.85,
+                        suggestions=[],
+                    )
+                )
+    elif isinstance(data, dict):
+        # Handle both single-level and nested structures
+        for key, value in data.items():
+            sections.append(_section_from_key_value(key, value))
+    else:
+        sections.append(
+            FeedbackSection(
+                section_name="general_feedback",
+                content=str(data),
+                confidence=0.7,
+                suggestions=[],
             )
-        else:
-            section = FeedbackSection(
-                section_name=key, content=str(value), confidence=0.85, suggestions=[]
-            )
-        sections.append(section)
+        )
 
     logger.info("json_output_parsed", section_count=len(sections))
     return sections
+
+
+def _section_from_key_value(key: str, value: object) -> FeedbackSection:
+    """Build a FeedbackSection from a single JSON key/value pair."""
+    if isinstance(value, dict):
+        return FeedbackSection(
+            section_name=key,
+            content=json.dumps(value),
+            confidence=0.9,
+            suggestions=(
+                value.get("suggestions", [])
+                if isinstance(value.get("suggestions"), list)
+                else []
+            ),
+        )
+    return FeedbackSection(
+        section_name=key, content=str(value), confidence=0.85, suggestions=[]
+    )
 
 
 def _parse_plaintext_output(raw: str) -> list[FeedbackSection]:
